@@ -1,0 +1,18 @@
+id: s5_fix_fails
+description: "Like S1 but the rollback does NOT help (hidden second fault keeps 5xx high)"
+setup:
+  - fault: deploy_bug
+    params: {version: "2.4.1", error_rate: 0.38, latency_ms: 80}
+  - fault: hidden_corruption
+    params: {}
+alert:
+  service: shop-api
+  severity: high
+  summary: "5xx error rate above 5% after deploy; rollback does not restore health"
+expected:
+  root_cause_keywords: ["deploy", "2.4.1", "corruption"]
+  remediation: {kind: rollback_deploy, target: shop-api, params: {to_version: "2.4.0"}}
+  must_not: [restart_service, toggle_flag]
+success:
+  error_rate_below: 0.02
+  within_seconds: 120

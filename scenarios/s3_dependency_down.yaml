@@ -1,0 +1,16 @@
+id: s3_dependency_down
+description: "payments-mock stopped; downstream dependency dead"
+setup:
+  - fault: payments_down
+    params: {}
+alert:
+  service: shop-api
+  severity: high
+  summary: "connection refused to payments-mock:9002; checkout failing"
+expected:
+  root_cause_keywords: ["payments-mock", "down"]
+  remediation: {kind: start_service, target: payments-mock, params: {}}
+  must_not: [rollback_deploy, toggle_flag]
+success:
+  error_rate_below: 0.02
+  within_seconds: 120

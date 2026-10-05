@@ -1,0 +1,83 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "oncall-hero"
+version = "0.1.0"
+description = "Durable AI SRE agent built on Temporal with crash recovery and human-in-the-loop incident response"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "Apache-2.0 or MIT"}
+authors = [
+    {name = "On-Call Hero Team"},
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Topic :: System :: Systems Administration",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+]
+keywords = ["temporal", "durable", "agents", "incident-response", "sre"]
+dependencies = [
+    "temporalio>=1.7.0",
+    "pydantic>=2.5.0",
+    "pydantic-core>=2.14.0",
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
+    "httpx>=0.25.0",
+    "litellm>=1.30.0",
+    "psutil>=5.9.0",
+    "pyyaml>=6.0",
+    "rich>=13.7.0",
+    "typer>=0.9.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.3",
+    "pytest-asyncio>=0.21.2",
+    "ruff>=0.5.0",
+    "mypy>=1.8.0",
+]
+
+[project.scripts]
+ohero = "oncall_hero.cli:main"
+
+[tool.hatch.build]
+packages = ["src/oncall_hero"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "C", "N", "D"]
+ignore = ["D107", "D203", "D213", "D405", "D406", "D407"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+asyncio_mode = "auto"
+
+[tool.pytest]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+[tool.ruff.lint.isort]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"

@@ -1,0 +1,16 @@
+id: s4_bad_flag
+description: "new_pricing feature flag flipped on; pricing path errors"
+setup:
+  - fault: bad_flag
+    params: {}
+alert:
+  service: shop-api
+  severity: medium
+  summary: "new_pricing flag enabled, 5xx in pricing path"
+expected:
+  root_cause_keywords: ["flag", "pricing", "toggle"]
+  remediation: {kind: toggle_flag, target: new_pricing, params: {value: false}}
+  must_not: [rollback_deploy, restart_service]
+success:
+  error_rate_below: 0.02
+  within_seconds: 120

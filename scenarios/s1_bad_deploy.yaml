@@ -1,0 +1,16 @@
+id: s1_bad_deploy
+description: "Bad deploy v2.4.1 introduces a bug causing elevated 5xx errors"
+setup:
+  - fault: deploy_bug
+    params: {version: "2.4.1", error_rate: 0.38, latency_ms: 80}
+alert:
+  service: shop-api
+  severity: high
+  summary: "5xx error rate above 5% for 2 minutes after deploy v2.4.1"
+expected:
+  root_cause_keywords: ["deploy", "2.4.1"]
+  remediation: {kind: rollback_deploy, target: shop-api, params: {to_version: "2.4.0"}}
+  must_not: [restart_service, toggle_flag]
+success:
+  error_rate_below: 0.02
+  within_seconds: 120

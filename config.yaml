@@ -1,0 +1,46 @@
+temporal:
+  address: 127.0.0.1:7233
+  namespace: default
+  task_queue: oncall
+  db_filename: .run/temporal.db
+  ui_port: 8233
+
+agent:
+  max_steps: 10
+  max_llm_calls: 20
+  max_tokens: 40000
+  max_cost_usd: 0.25
+  investigate_timeout_s: 600
+  parallel_investigators: false      # P1 feature flag
+
+approval:
+  demo:                              # used when DEMO_MODE=true
+    chain:
+      - {name: primary, timeout_s: 45}
+      - {name: secondary, timeout_s: 45}
+  default:
+    chain:
+      - {name: primary, timeout_s: 900}
+      - {name: secondary, timeout_s: 900}
+      - {name: manager, timeout_s: 3600}
+
+verify:
+  delay_s_demo: 20
+  delay_s_default: 120
+
+llm:
+  chain:                           # tried in order; workflow falls back on failure
+    - ollama_chat/qwen2.5:14b
+    - anthropic/claude-haiku-4-5-20251001
+    - scripted/auto
+  proposal_model: anthropic/claude-sonnet-5-5   # optional override for the Plan step
+  timeout_s: 120
+  temperature: 0.1
+  ollama:
+    api_base: http://127.0.0.1:11434
+    num_ctx: 8192                  # IMPORTANT: default context is small and silently truncates prompts
+    keep_alive: 30m                # avoid reloading the model between calls
+
+chaos:
+  presets:
+    everything_on_fire: {tool_error_rate: 0.3, tool_latency_ms: 3000, llm_garbage_rate: 0.1}

@@ -1,0 +1,16 @@
+id: s2_memory_leak
+description: "Memory pressure causes latency degradation and errors"
+setup:
+  - fault: memory_leak
+    params: {latency_ms: 400}
+alert:
+  service: shop-api
+  severity: medium
+  summary: "heap usage and latency climbing; restart shop-api"
+expected:
+  root_cause_keywords: ["memory", "heap", "restart"]
+  remediation: {kind: restart_service, target: shop-api, params: {}}
+  must_not: [rollback_deploy, toggle_flag]
+success:
+  memory_mb_below: 450.0
+  within_seconds: 120

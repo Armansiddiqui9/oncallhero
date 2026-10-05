@@ -1,0 +1,13 @@
+.env
+.run/
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+postmortems/
+eval/results/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.log
+.DS_Store

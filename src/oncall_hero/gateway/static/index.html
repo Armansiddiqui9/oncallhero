@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>On-Call Hero</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/alpine.min.js" defer></script>
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <div x-data="onCallHero()" x-init="init()">
+    <!-- Header -->
+    <header class="header">
+      <div class="brand">
+        <h1>⚡ On-Call Hero</h1>
+        <span class="subtitle">Durable SRE agent on Temporal</span>
+      </div>
+      <div class="service-pills" x-data="servicePills()">
+        <template x-for="svc in ['temporal','worker','shop-api','payments-mock']" :key="svc">
+          <div class="pill" :class="status[svc]?.running ? 'running' : 'stopped'">
+            <span class="dot" :class="status[svc]?.healthy ? 'green' : (status[svc]?.running ? 'yellow' : 'red')"></span>
+            <span x-text="svc"></span>
+            <span class="uptime" x-text="uptime(svc)"></span>
+            <button @click="menu(svc)">⋯</button>
+            <div class="menu" x-show="openMenu === svc" @click.away="openMenu = null">
+              <button @click="action(svc, 'start')">Start</button>
+              <button @click="action(svc, 'stop')">Stop</button>
+              <button @click="action(svc, 'kill')" class="danger">Kill</button>
+              <button @click="action(svc, 'restart')">Restart</button>
+              <button @click="tail(svc)">Logs</button>
+            </div>
+          </div>
+        </template>
+        <button @click="stack('up')" class="btn">Stack Up</button>
+        <button @click="stack('down')" class="btn danger">Stack Down</button>
+      </div>
+      <div class="model-chip">
+        Model: <strong x-text="model"></strong>
+        <span x-show="scripted" class="badge-scripted">scripted (not a real AI)</span>
+        <span x-show="fallback" class="badge-fallback">fallback</span>
+      </div>
+    </header>
+
+    <!-- Banners -->
+    <div class="banners">
+      <div class="banner warn" x-show="workerOffline" x-cloak>
+        ⚠ Worker offline. Incident is safe and will resume when a worker returns.
+      </div>
+      <div class="banner chaos" x-show="chaosActive" x-cloak>
+        🔥 Chaos active: tools failing / slowing down
+      </div>
+      <div class="banner info" x-show="temporalDown" x-cloak>
+        ⏸ Temporal server down
+      </div>
+    </div>
+
+    <main class="layout">
+      <!-- Left column -->
+      <aside class="sidebar">
+        <section class="panel">
+          <h2>SCENARIOS</h2>
+          <div class="scenario-list" x-data="scenarioPanel()">
+            <template x-for="(id, sc) in scenarios" :key="id">
+              <button class="scenario-btn" @click="trigger(id)" :disabled="triggering">
+                <span x-text="sc.description"></span>
+                <small x-text="'ID: ' + id"></small>
+              </button>
+            </template>
+            <button @click="reset()" class="btn">Reset world</button>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>INCIDENTS</h2>
+          <div class="incident-list">
+            <template x-for="inc in incidents" :key="inc.workflow_id">
+              <div class="incident-item" :class="{active: selected === inc.workflow_id}"
+                   @click="select(inc.workflow_id)">
+                <span x-text="inc.workflow_id"></span>
+                <span class="phase-tag" x-text="inc.status"></span>
+              </div>
+            </template>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>WORLD</h2>
+          <div class="world-panel">
+            <div class="metric-row">
+              <span>error rate</span>
+              <strong x-text="world.error_rate?.toFixed(3) ?? '—'"></strong>
+            </div>
+            <div class="metric-row">
+              <span>version</span>
+              <strong x-text="world.version ?? '—'"></strong>
+            </div>
+            <div class="metric-row">
+              <span>executions</span>
+              <strong x-text="world.executions ? Object.values(world.executions).reduce((a,b)=>a+b,0) : 0"></strong>
+            </div>
+            <div class="sparkline" x-html="sparkline"></div>
+          </div>
+        </section>
+
+        <section class="panel" x-show="chaosActive" x-cloak>
+          <h2>CHAOS</h2>
+          <div class="chaos-panel">
+            <label>tool_error_rate <input type="range" min="0" max="1" step="0.1"
+              x-model.number="chaos.tool_error_rate" @change="setChaos()"></label>
+            <label>tool_latency_ms <input type="range" min="0" max="10000" step="500"
+              x-model.number="chaos.tool_latency_ms" @change="setChaos()"></label>
+            <label>llm_garbage_rate <input type="range" min="0" max="1" step="0.1"
+              x-model.number="chaos.llm_garbage_rate" @change="setChaos()"></label>
+            <button @click="preset('everything_on_fire')" class="btn">Everything on fire</button>
+            <button @click="preset('flaky_tools')" class="btn">Flaky tools</button>
+            <button @click="preset('slow_tools')" class="btn">Slow tools</button>
+            <button @click="clearChaos()" class="btn danger">Clear chaos</button>
+          </div>
+        </section>
+      </aside>
+
+      <!-- Center column -->
+      <section class="main">
+        <div class="incident-header" x-show="selected">
+          <h2 x-text="selected"></h2>
+          <div class="stepper" x-show="state?.phase">
+            <template x-for="p in phases" :key="p">
+              <div class="step" :class="{active: state.phase === p, done: phases.indexOf(state.phase) > phases.indexOf(p)}">
+                <span x-text="p"></span>
+              </div>
+            </template>
+          </div>
+          <a :href="'http://127.0.0.1:8233/namespaces/default/workflows/' + (selected || '')" target="_blank" class="btn" @click.prevent="if(!selected) alert('Select an incident first'); else window.open(this.href, '_blank')">Open in Temporal ↗</a>
+        </div>
+
+        <div class="timeline" x-show="selected">
+          <h3>TIMELINE <small>(from event history — works while worker is dead)</small></h3>
+          <div class="timeline-list">
+            <template x-for="ev in timeline" :key="ev.event_id">
+              <div class="timeline-item" :class="ev.kind">
+                <span class="ts" x-text="ev.time ?? ''"></span>
+                <span class="msg" x-text="ev.message"></span>
+                <span class="badge" x-show="ev.retry" title="retry">🔁 retry</span>
+                <span class="badge" x-show="ev.timer" title="durable timer">⏱ durable timer</span>
+                <span class="badge" x-show="ev.heartbeat" title="heartbeat">💓 heartbeat</span>
+                <span class="badge" x-show="ev.compensation" title="compensation">↩ compensation</span>
+                <span class="badge" x-show="ev.child" title="child workflow">🧩 child workflow</span>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <div class="plan-panel" x-show="state?.plan">
+          <h3>PLAN / APPROVAL</h3>
+          <div class="diagnosis" x-text="state.plan?.diagnosis"></div>
+          <ul class="evidence">
+            <template x-for="e in state.plan?.evidence ?? []" :key="e">
+              <li x-text="e"></li>
+            </template>
+          </ul>
+          <div class="steps">
+            <template x-for="(step, i) in state.plan?.steps ?? []" :key="i">
+              <div class="step-item">
+                <span class="step-kind" x-text="step.kind"></span>
+                <span x-text="step.target"></span>
+                <span class="risk" :class="step.risk" x-text="step.risk"></span>
+                <button @click="removeStep(i)" class="btn small">✕</button>
+              </div>
+            </template>
+          </div>
+          <div class="escalation" x-show="state?.phase === 'AWAITING_APPROVAL'">
+            ⏱ escalates in <span x-text="countdown"></span>
+          </div>
+          <div class="actions">
+            <button @click="approve()" class="btn success">Approve</button>
+            <button @click="reject()" class="btn danger">Reject</button>
+            <button @click="sendPause()" class="btn">Pause</button>
+            <button @click="sendResume()" class="btn">Resume</button>
+            <button @click="sendCancel()" class="btn danger">Cancel</button>
+          </div>
+          <div class="validator-error" x-show="validatorError" x-text="validatorError" x-cloak></div>
+        </div>
+
+        <div class="notes">
+          <h3>NOTES</h3>
+          <input type="text" x-model="noteText" placeholder="add context…" @keydown.enter="sendNote()">
+          <button @click="sendNote()" class="btn">Send</button>
+          <ul>
+            <template x-for="n in state?.notes ?? []" :key="n">
+              <li x-text="n"></li>
+            </template>
+          </ul>
+        </div>
+
+        <div class="budget" x-show="state?.budget">
+          <h3>BUDGET</h3>
+          <div class="meter">
+            <span>steps</span>
+            <div class="bar"><div class="fill" :style="'width:' + (100 * state.budget.steps_used / state.budget.max_steps) + '%'"></div></div>
+            <span x-text="state.budget.steps_used + '/' + state.budget.max_steps"></span>
+          </div>
+          <div class="meter">
+            <span>tokens</span>
+            <div class="bar"><div class="fill" :style="'width:' + (100 * state.budget.tokens_used / state.budget.max_tokens) + '%'"></div></div>
+            <span x-text="(state.budget.tokens_used/1000).toFixed(1) + 'k/' + (state.budget.max_tokens/1000) + 'k'"></span>
+          </div>
+          <div class="meter">
+            <span>cost</span>
+            <div class="bar"><div class="fill" :style="'width:' + (100 * state.budget.cost_usd / state.budget.max_cost_usd) + '%'"></div></div>
+            <span x-text="'$' + state.budget.cost_usd.toFixed(4)"></span>
+          </div>
+        </div>
+
+        <div class="postmortem" x-show="postmortem">
+          <h3>POST-MORTEM <a :href="'/api/incidents/' + selected + '/postmortem'" class="btn small">Download</a></h3>
+          <div class="markdown" x-text="postmortem"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

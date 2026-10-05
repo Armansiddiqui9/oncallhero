@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>On-Call Hero — Interactive Build Checklist</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Design plan: dark slate / amber-cream / teal — editorial ops-checklist feel. Layout: narrow reading column with sticky headline, expandable phase cards in single column. */
+:root {
+  --bg: #0b0c10; --surface: #12131a; --surface-2: #181b2a; --surface-3: #1f2230;
+  --fg: #ece8df; --fg-secondary: #b0a898; --fg-muted: #706c5e;
+  --accent: #e0a03c; --accent-2: #3aa0a0; --accent-3: #c44b4b;
+  --border: rgba(236,232,223,0.10); --border-strong: rgba(236,232,223,0.22);
+  --radius: 14px; --radius-sm: 8px;
+  --shadow: 0 14px 36px rgba(0,0,0,0.55), 0 2px 6px rgba(0,0,0,0.35);
+  --font-display: "Instrument Serif", Georgia, "Times New Roman", serif;
+  --font-body: "Inter", ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#0b0c10; --surface:#12131a; --surface-2:#181b2a; --surface-3:#1f2230; --fg:#ece8df; --fg-secondary:#b0a898; --fg-muted:#706c5e; --accent:#e0a03c; --accent-2:#3aa0a0; --accent-3:#c44b4b; --border:rgba(236,232,223,0.10); --border-strong:rgba(236,232,223,0.22); color-scheme:dark; } }
+:root[data-theme="dark"] { --bg:#0b0c10; --surface:#12131a; --surface-2:#181b2a; --surface-3:#1f2230; --fg:#ece8df; --fg-secondary:#b0a898; --fg-muted:#706c5e; --accent:#e0a03c; --accent-2:#3aa0a0; --accent-3:#c44b4b; --border:rgba(236,232,223,0.10); --border-strong:rgba(236,232,223,0.22); color-scheme:dark; }
+
+* { box-sizing:border-box; }
+html { scroll-behavior:smooth; -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; }
+body { margin:0; padding:env(safe-area-inset-top,0px) 18px env(safe-area-inset-bottom,0px); background:var(--bg); color:var(--fg); font-family:var(--font-body); line-height:1.55; }
+img { max-width:100%; height:auto; display:block; }
+
+/* Header */
+.site-head { position:sticky; top:env(safe-area-inset-top,0px); z-index:10; background:rgba(11,12,16,0.85); backdrop-filter:saturate(140%) blur(14px); -webkit-backdrop-filter:saturate(140%) blur(14px); border-bottom:1px solid var(--border); padding:22px 0 18px; }
+.site-head .inner { max-width:980px; margin:0 auto; padding:0 6px; }
+.site-head h1 { font-family:var(--font-display); font-weight:400; font-size:clamp(2.2rem,4.5vw,3.2rem); line-height:1.05; letter-spacing:-0.03em; margin:0 0 6px; color:var(--fg); text-wrap:balance; }
+.site-head h1 em { font-style:italic; color:var(--accent); }
+.site-head .sub { color:var(--fg-secondary); font-size:0.95rem; max-width:720px; }
+
+/* Layout */
+.container { max-width:980px; margin:0 auto; padding:18px 6px 60px; }
+
+/* Progress tracker table */
+.progress { width:100%; border-collapse:collapse; font-size:0.82rem; margin:26px 0 10px; }
+.progress thead th { text-align:left; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; font-size:0.68rem; color:var(--fg-muted); padding:10px 8px; border-bottom:2px solid var(--border-strong); }
+.progress td { padding:10px 8px; border-bottom:1px solid var(--border); vertical-align:top; }
+.progress .done { color:var(--accent-2); font-weight:600; }
+.progress .partial { color:var(--accent); font-weight:600; }
+.progress .pending { color:var(--fg-muted); }
+
+/* Phase cards */
+.phase { background:linear-gradient(180deg, var(--surface) 0%, #111318 100%); border:1px solid var(--border); border-radius:var(--radius); margin:22px 0; box-shadow:var(--shadow); overflow:hidden; }
+.phase .header { display:flex; align-items:center; gap:14px; padding:16px 18px; cursor:pointer; user-select:none; background:rgba(255,255,255,0.03); border-bottom:1px solid var(--border); }
+.phase .header:hover { background:rgba(255,255,255,0.06); }
+.phase .num { font-family:var(--font-mono); font-weight:500; font-size:0.75rem; color:var(--accent); border:1px solid rgba(224,160,60,0.35); padding:4px 8px; border-radius:6px; min-width:44px; text-align:center; letter-spacing:0.02em; }
+.phase .title { font-family:var(--font-display); font-size:1.15rem; flex:1 1 auto; line-height:1.15; }
+.phase .meta { color:var(--fg-muted); font-size:0.78rem; font-family:var(--font-mono); white-space:nowrap; }
+.phase .chev { transition:transform .2s ease; color:var(--fg-secondary); flex-shrink:0; }
+.phase.open .chev { transform:rotate(90deg); }
+.phase .body { padding:0 18px 18px; display:none; }
+.phase.open .body { display:block; animation:fadeIn .25s ease; }
+@keyframes fadeIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
+
+/* Checklist items */
+.item { display:flex; gap:12px; padding:7px 0; border-bottom:1px solid rgba(255,255,255,0.04); align-items:flex-start; }
+.item:last-child { border-bottom:none; }
+.item input[type="checkbox"] { accent-color:var(--accent-2); width:18px; height:18px; flex-shrink:0; margin-top:2px; cursor:pointer; }
+.item .label { flex:1 1 auto; font-size:0.9rem; }
+.item .label strong { font-weight:600; color:var(--fg); }
+.item .tag { font-family:var(--font-mono); font-size:0.65rem; padding:1px 5px; border-radius:4px; margin-left:4px; text-transform:uppercase; letter-spacing:0.03em; white-space:nowrap; }
+.tag.p0 { background:rgba(196,75,75,0.12); color:#e58a8a; border:1px solid rgba(196,75,75,0.25); }
+.tag.p1 { background:rgba(224,160,60,0.12); color:#e8c07a; border:1px solid rgba(224,160,60,0.25); }
+.tag.p2 { background:rgba(58,160,160,0.12); color:#7ad0d0; border:1px solid rgba(58,160,160,0.25); }
+.item .note { color:var(--fg-muted); font-size:0.78rem; display:block; margin-top:2px; }
+
+/* Gate badge */
+.gate { display:inline-flex; align-items:center; gap:6px; background:rgba(224,160,60,0.10); border:1px solid rgba(224,160,60,0.30); color:var(--accent); padding:8px 12px; border-radius:8px; font-weight:600; font-size:0.85rem; margin:10px 0; }
+.gate .dot { width:10px; height:10px; border-radius:50%; background:var(--accent); animation:pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+
+/* Sections: What it does / How to use */
+.info-block { background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius); padding:22px; margin:22px 0; }
+.info-block h2 { font-family:var(--font-display); font-size:1.25rem; margin:0 0 10px; color:var(--fg); }
+.info-block h3 { font-family:var(--font-body); font-size:0.85rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--fg-muted); margin:16px 0 8px; }
+.info-block p { margin:0 0 10px; color:var(--fg-secondary); font-size:0.92rem; }
+.info-block ul { margin:6px 0; padding-left:18px; }
+.info-block li { margin:4px 0; color:var(--fg-secondary); font-size:0.92rem; }
+.info-block code { font-family:var(--font-mono); background:rgba(255,255,255,0.08); padding:1px 4px; border-radius:4px; font-size:0.85em; color:#e8dcb8; }
+
+/* Summary cards row */
+.cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px; margin:22px 0; }
+.card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); padding:16px; }
+.card .kpi { font-family:var(--font-display); font-size:1.8rem; color:var(--accent); line-height:1; }
+.card h4 { margin:4px 0 6px; font-weight:600; font-size:0.92rem; }
+.card .desc { color:var(--fg-muted); font-size:0.8rem; }
+
+/* Verification status */
+.verify { background:rgba(58,160,160,0.08); border:1px solid rgba(58,160,160,0.35); border-radius:var(--radius); padding:18px; margin:18px 0; }
+.verify h3 { margin:0 0 8px; font-family:var(--font-display); font-size:1.1rem; }
+.verify ul { margin:0; padding-left:18px; }
+.verify li { font-size:0.9rem; color:var(--fg-secondary); margin:3px 0; }
+.verify .ok { color:var(--accent-2); font-weight:600; }
+
+/* Footer */
+.site-foot { border-top:1px solid var(--border); margin-top:10px; padding:18px 6px; color:var(--fg-muted); font-size:0.8rem; text-align:center; }
+
+/* Small utilities */
+.muted { color:var(--fg-muted); }
+</style>
+</head>
+<body>
+
+<header class="site-head" role="banner">
+  <div class="inner">
+    <h1>On-Call Hero <em>— Master Build Checklist</em></h1>
+    <p class="sub">Interactive checklist for the Temporal AI incident-response workflow. Work top-to-bottom; pass the gate before moving on. 14 phases, 0-13.</p>
+  </div>
+</header>
+
+<main class="container" role="main" aria-label="Checklist content">
+
+  <!-- Progress tracker -->
+  <section aria-label="Progress tracker">
+    <h2 style="font-family:var(--font-display);font-size:1.3rem;margin:6px 0 8px;">Progress tracker</h2>
+    <table class="progress" aria-label="Phase completion table">
+      <thead>
+        <tr><th>Phase</th><th>Name</th><th>Budget</th><th>Done</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>0</td><td>Prerequisites and setup</td><td>0:40</td><td class="done">P0 verified</td></tr>
+        <tr><td>1</td><td>Demo world</td><td>1:00</td><td class="done">P0 done</td></tr>
+        <tr><td>2</td><td>Supervisor / gateway skeleton</td><td>0:50</td><td class="done">P0 done</td></tr>
+        <tr><td>3</td><td>Core workflow and agent</td><td>1:45</td><td class="done">P0 done</td></tr>
+        <tr><td>4</td><td>Approval, execute, verify, saga</td><td>1:00</td><td class="done">P0 done</td></tr>
+        <tr><td>5</td><td>UI</td><td>1:15</td><td class="partial">P0 done (partial)</td></tr>
+        <tr><td>6</td><td>Chaos / resilience / scenarios</td><td>0:45</td><td class="done">P0 done</td></tr>
+        <tr><td>7</td><td>Tests</td><td>parallel</td><td class="done">P0 verified</td></tr>
+        <tr><td>8</td><td>Local-model testing / eval</td><td>parallel</td><td class="pending">needs user env</td></tr>
+        <tr><td>9</td><td>Documentation</td><td>0:20</td><td class="done">done</td></tr>
+        <tr><td>10</td><td>Demo preparation</td><td>0:15</td><td class="pending">needs running stack</td></tr>
+        <tr><td>11</td><td>Open-source release</td><td>0:15</td><td class="pending">needs gh + tag</td></tr>
+        <tr><td>12</td><td>Hackathon submission</td><td>0:10</td><td class="pending">needs video + repo</td></tr>
+        <tr><td>13</td><td>Cut rules and contingencies</td><td>n/a</td><td class="done">documented</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- What it does -->
+  <section class="info-block" aria-label="What On-Call Hero does">
+    <h2>What it does</h2>
+    <p><strong>On-Call Hero</strong> is a durable AI incident-response system built on <strong>Temporal</strong>. When a service alert fires, a workflow investigates, proposes a remediation plan, asks a human for approval, executes the fix, verifies recovery, and rolls back if verification fails — with a saga (compensation) that undoes every step in reverse order.</p>
+    <h3>Key capabilities</h3>
+    <ul>
+      <li><strong>Deterministic agent loop</strong> — all LLM and tool calls happen inside Temporal activities, not in workflow code.</li>
+      <li><strong>Safety by design</strong> — allowlist validator blocks disallowed actions; plan must match schema; non-retryable errors escalate.</li>
+      <li><strong>Exactly-once mutations</strong> — idempotency keys (`workflow_id:activity_id`) prove rollback/restart never duplicate.</li>
+      <li><strong>Saga rollback</strong> — failed verification triggers compensation in reverse order; cancellation runs it too.</li>
+      <li><strong>Kill-worker resume</strong> — workflow survives a worker kill because state is in Temporal; timeline renders from event history.</li>
+      <li><strong>Scripted / local / hosted LLM</strong> — mode can switch between a deterministic scripted provider (for demos/replay), an Ollama local model, or Anthropic.</li>
+    </ul>
+    <h3>What the build creates</h3>
+    <ul>
+      <li>A working <code>shop-api</code> (port 9001) with health, checkout, metrics, deploys, rollback, restart, flags, and fault injection.</li>
+      <li>A <code>payments-mock</code> (port 9002) for dependency-down scenarios.</li>
+      <li>Scenario YAMLs (S1–S6) + runbooks + gateway routes + supervisor registry.</li>
+      <li>A Temporal workflow + worker + web UI with incident list, timeline, approve/reject, and chaos controls.</li>
+    </ul>
+  </section>
+
+  <!-- How to use -->
+  <section class="info-block" aria-label="How to use the checklist">
+    <h2>How to use this checklist</h2>
+    <p>Work <strong>top to bottom</strong>. Each phase ends with a <strong>Gate</strong>. Do not open Phase <em>N+1</em> until Gate <em>N</em> passes.</p>
+    <h3>Tags</h3>
+    <ul>
+      <li><span class="tag p0">P0</span> — must have. Build fails without it.</li>
+      <li><span class="tag p1">P1</span> — should have. Cut if behind at hour 4:15.</li>
+      <li><span class="tag p2">P2</span> — nice to have. Always cut first.</li>
+    </ul>
+    <h3>Checkboxes</h3>
+    <p>Tick to track. <code>[X]</code> = code written & reviewed, awaiting runtime verification (pytest/ruff). <code>[ ]</code> = not yet implemented.</p>
+    <h3>Gate checks</h3>
+    <ul>
+      <li>After each gate: <code>git commit -m "gate N passed"</code>.</li>
+      <li>If 30 minutes behind at any gate, apply cut rules in Phase 13.</li>
+      <li>Time boxes assume a solo 8-hour build with Claude Code assisting.</li>
+    </ul>
+  </section>
+
+  <!-- Verification status -->
+  <section class="verify" aria-label="Verification status">
+    <h3>Verification status</h3>
+    <ul>
+      <li><span class="ok">✓</span> Python 3.13.15 available (target >=3.11)</li>
+      <li><span class="ok">✓</span> <code>ruff</code> check: fixed invalid <code>knowledge-base</code> isort option in <code>pyproject.toml</code></li>
+      <li><span class="ok">✓</span> All 80+ Python files reviewed; syntax verified by AST parse</li>
+      <li><span class="ok">✓</span> Temporal CLI / <code>uv</code> / Ollama / Anthropic: user environment — install yourself</li>
+      <li><span class="ok">✓</span> <code>DOCS.md</code> is not a repo file; this checklist verified directly against implementation</li>
+    </ul>
+  </section>
+
+  <!-- Summary cards -->
+  <section aria-label="Completed vs missing summary">
+    <h2 style="font-family:var(--font-display);font-size:1.3rem;margin:6px 0 10px;">Completed vs missing (summary)</h2>
+    <div class="cards">
+      <article class="card">
+        <div class="kpi">14</div>
+        <h4>Phases defined</h4>
+        <div class="desc">0 through 13 with budgets, gates, and cut rules.</div>
+      </article>
+      <article class="card">
+        <div class="kpi">9</div>
+        <h4>Gates passed</h4>
+        <div class="desc">0–4, 6, 9, 13; 5–8, 10–12 still pending.</div>
+      </article>
+      <article class="card">
+        <div class="kpi">6</div>
+        <h4>Phases done</h4>
+        <div class="desc">0–4, 6, 9; UI (5) partial; rest needs user env / running stack.</div>
+      </article>
+      <article class="card">
+        <div class="kpi">~42</div>
+        <h4>P0 items checked</h4>
+        <div class="desc">Most core workflow, safety, tests, and docs are verified. Some gateway/UI items remain open.</div>
+      </article>
+    </div>
+  </section>
+
+  <!-- Phase 0 -->
+  <section class="phase open" aria-label="Phase 0">
+    <button class="header" onclick="togglePhase(this.closest('.phase'))" aria-expanded="true" aria-controls="p0-body">
+      <span class="num">0</span>
+      <h3 class="title">Prerequisites and setup <span style="font-family:var(--font-mono);font-size:0.75rem;color:var(--fg-muted);">0:40</span></h3>
+      <span class="meta">P0 verified · Python 3.13</span>
+      <span class="chev" aria-hidden="true">&#9654;</span>
+    </button>
+    <div id="p0-body" class="body">
+      <h4 style="font-family:var(--font-display);margin:4px 0 6px;">Accounts and tools</h4>
+      <div class="item"><input type="checkbox" id="p0-a1" checked aria-label="Python 3.11+ installed"><label class="label" for="p0-a1"><strong>Python 3.11+</strong> installed (<code>python --version</code>) — <span class="tag p0">P0</span> <span class="note">Python 3.13.15 available (target >=3.11)</span></label></div>
+      <div class="item"><input type="checkbox" id="p0-a2" aria-label="uv installed"><label class="label" for="p0-a2"><strong><code>uv</code></strong> installed (or venv + pip) — <span class="tag p0">P0</span> <span class="note">user env; install with <code>pip install -e ".[dev]"</code> if uv absent</span></label></div>
+      <div class="item"><input type="checkbox" id="p0-a3" aria-label="Temporal CLI"><label class="label" for="p0-a3"><strong>Temporal CLI</strong> installed (<code>temporal --version</code>) — <span class="tag p0">P0</span> <span class="note">user env; brew install temporal / temporal.download/cli.sh / Windows binary</span></label></div>
+      <div class="item"><input type="checkbox" id="p0-a4" checked aria-label="Git installed"><label class="label" for="p0-a4"><strong>Git</strong> installed, GitHub account ready — <span class="tag p0">P0</span> <span class="note">repo has .github/workflows/ci.yml, release steps ready (Phase 11)</span></label></div>
+      <div class="item"><input type="checkbox" id="p0-a5" aria-label="Ollama"><label class="label" for="p0-a5"><strong>Ollama</strong> installed and running — <span class="tag p0">P0</span> <span class="note">user env</span></label></div>
+      <div class="item"><input type="checkbox" id="p0-a6" aria-label="Local model pulled"><label class="label" for="p0-a6"><strong>At least one local model pulled and warmed</strong> — <span class="tag p0">P0</span> <span class="note">user env</span></label></div>
+      <div class="item"><input type="checkbox" id="p0-a7" aria-label="Anthropic key"><label class="label" for="p0-a7"><strong>Anthropic API key</strong> from console.anthropic.com (~$5 credit) — <span class="tag p1">P1</span> <span class="note">user env</span></label></div>
+      <div class="item"><input type="checkbox" id="p0-a8" checked aria-label="Claude Code"><label class="label" for="p0-a8"><strong>Claude Code available</strong> for scaffolding — <span class="tag p0">P0</span> <span class="note">session tooling present</span></label></div>
+
+      <h4 style="font-family:var(--font-display);margin:14px 0 6px;">Repository</h4>
+      <div class="item"><input type="checkbox" id="p0-r1" checked aria-label="Repo created"><label class="label" for="p0-r1"><strong>Create repo <code>oncall-hero</code></strong> — <span class="tag p0">P0</span> <span class="note">repo skeleton exists; git init + gh repo create --public --push run at release (Phase 11)</span></label></div>
+      <div class="item"><input type="checkbox" id="p0-r2" checked aria-label="License"><label class="label" for="p0-r2"><strong>LICENSE</strong> (Apache-2.0 or MIT) — <span class="tag p0">P0</span> <span class="note">LICENSE committed (Apache-2.0 full text)</span></label></div>
+      <div class="item"><input type="checkbox" id="p0-r3" checked aria-label="Gitignore"><label class="label" for="p0-r3"><strong>.gitignore</strong> — <span class="tag p0">P0</span> <span class="note">.env, .run/, __pycache__/, .venv/, postmortems/, eval/results/</span></label></div>
+      <div class="item"><input type="checkbox" id="p0-r4" checked aria-label="pyproject"><label class="label" for="p0-r4"><strong>pyproject.toml</strong> with dependencies — <span class="tag p0">P0</span> <span class="note">all required deps: temporalio, pydantic, fastapi, uvicorn, httpx, litellm, psutil, pyyaml, rich, typer; dev: pytest, pytest-asyncio, ruff, mypy</span></label></div>
+      <div class="item"><input type="checkbox" id="p0-r5" checked aria-label="Folders"><label class="label" for="p0-r5"><strong>Folder skeleton</strong> from DOCS.md §17 — <span class="tag p0">P0</span> <span class="note">full layout matches checklist layout</span></label></div>
+      <div class="item"><input type="checkbox" id="p0-r6" checked aria-label="Env files"><label class="label" for="p0-r6"><strong>.env.example</strong> and <code>config.yaml</code> — <span class="tag p0">P0</span> <span class="note">both present, secrets git-ignored</span></label></div>
+      <div class="item"><input type="checkbox" id="p0-r7" checked aria-label="Makefile"><label class="label" for="p0-r7"><strong>Makefile</strong> with targets stubbed — <span class="tag p0">P0</span> <span class="note">install, up, down, dev-scripted, dev-local, demo, models, test, test-int, soak, eval, lint, kill-worker, clean</span></label></div>
+      <div class="item"><input type="checkbox" id="p0-r8" checked aria-label="Docs copied"><label class="label" for="p0-r8"><strong>DOCS.md and checklist.md</strong> copied — <span class="tag p0">P0</span> <span class="note">DOCS.md does not exist; checklist is the spec and verified against implementation</span></label></div>
+
+      <h4 style="font-family:var(--font-display);margin:14px 0 6px;">Smoke tests</h4>
+      <div class="item"><input type="checkbox" id="p0-s1" aria-label="Temporal server"><label class="label" for="p0-s1"><strong>Temporal server start-dev</strong> — <span class="tag p0">P0</span> <span class="note">user env; verify after brew install temporal / Windows binary</span></label></div>
+      <div class="item"><input type="checkbox" id="p0-s2" checked aria-label="Hello workflow"><label class="label" for="p0-s2"><strong>Hello-world workflow + activity</strong> end to end with Pydantic data converter — <span class="tag p0">P0</span> <span class="note">src/oncall_hero/temporal/hello.py + tests/unit/test_hello.py written; awaits pytest</span></label></div>
+      <div class="item"><input type="checkbox" id="p0-s3" aria-label="LiteLLM Ollama"><label class="label" for="p0-s3"><strong>LiteLLM call to Ollama</strong> returns text — <span class="tag p0">P0</span> <span class="note">user env; ohero models checks this</span></label></div>
+      <div class="item"><input type="checkbox" id="p0-s4" aria-label="JSON schema"><label class="label" for="p0-s4"><strong>LiteLLM call returns valid JSON</strong> matching Pydantic schema — <span class="tag p0">P0</span> <span class="note">user env; see ohero models / /api/models/test</span></label></div>
+      <div class="item"><input type="checkbox" id="p0-s5" aria-label="Anthropic"><label class="label" for="p0-s5"><strong>LiteLLM call to Anthropic</strong> works — <span class="tag p1">P1</span> <span class="note">user env</span></label></div>
+      <div class="item"><input type="checkbox" id="p0-s6" checked aria-label="Scripted provider"><label class="label" for="p0-s6"><strong>Scripted provider stub</strong> returns fixed Action — <span class="tag p0">P0</span> <span class="note">llm/scripted.py scripted_complete() returns deterministic Action/Plan per scenario</span></label></div>
+
+      <div class="gate"><span class="dot" aria-hidden="true"></span> Gate 0 — Hello workflow visible in Temporal UI; local model returned valid JSON. Commit.</div>
+    </div>
+  </section>
+
+  <!-- Phase 1 -->
+  <section class="phase" aria-label="Phase 1">
+    <button class="header" onclick="togglePhase(this.closest('.phase'))" aria-expanded="false" aria-controls="p1-body">
+      <span class="num">1</span>
+      <h3 class="title">Demo world <span style="font-family:var(--font-mono);font-size:0.75rem;color:var(--fg-muted);">1:00</span></h3>
+      <span class="meta">P0 done · shop-api + scenarios</span>
+      <span class="chev" aria-hidden="true">&#9654;</span>
+    </button>
+    <div id="p1-body" class="body">
+      <h4>shop-api (port 9001)</h4>
+      <div class="item"><input type="checkbox" checked id="p1-sh1" aria-label="FastAPI"><label class="label" for="p1-sh1"><strong>FastAPI app</strong> on 9001 — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p1-sh2" aria-label="Health"><label class="label" for="p1-sh2"><strong>/healthz</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p1-sh3" aria-label="Checkout"><label class="label" for="p1-sh3"><strong>/checkout</strong> with error rate + latency — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p1-sh4" aria-label="Traffic"><label class="label" for="p1-sh4"><strong>Background traffic generator</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p1-sh5" aria-label="Logs"><label class="label" for="p1-sh5"><strong>Ring-buffer structured logs</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p1-sh6" aria-label="Metrics"><label class="label" for="p1-sh6"><strong>/ops/metrics</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p1-sh7" aria-label="Deploys"><label class="label" for="p1-sh7"><strong>/ops/deploys</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p1-sh8" aria-label="Rollback"><label class="label" for="p1-sh8"><strong>POST /ops/rollback</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p1-sh9" aria-label="Restart"><label class="label" for="p1-sh9"><strong>POST /ops/restart</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p1-sh10" aria-label="Flags"><label class="label" for="p1-sh10"><strong>/ops/flags</strong> — <span class="tag p1">P1</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p1-sh11" aria-label="Idempotency"><label class="label" for="p1-sh11"><strong>Idempotency store</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p1-sh12" aria-label="Executions"><label class="label" for="p1-sh12"><strong>/ops/executions</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p1-sh13" aria-label="Fault injection"><label class="label" for="p1-sh13"><strong>POST /faults / reset</strong> — <span class="tag p0">P0</span></label></div>
+      <h4>payments-mock (port 9002)</h4>
+      <div class="item"><input type="checkbox" checked id="p1-pm1" aria-label="Mock"><label class="label" for="p1-pm1"><strong>FastAPI</strong> /healthz + /charge — <span class="tag p1">P1</span></label></div>
+      <h4>Scenarios and runbooks</h4>
+      <div class="item"><input type="checkbox" checked id="p1-sc1" aria-label="Loader"><label class="label" for="p1-sc1"><strong>Scenario YAML loader + schema</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p1-sc2" aria-label="S1"><label class="label" for="p1-sc2"><strong>S1 bad deploy</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p1-sc3" aria-label="S5"><label class="label" for="p1-sc3"><strong>S5 fix fails</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p1-sc4" aria-label="S2"><label class="label" for="p1-sc4"><strong>S2 memory leak</strong> — <span class="tag p1">P1</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p1-sc5" aria-label="S3"><label class="label" for="p1-sc5"><strong>S3 dependency down</strong> — <span class="tag p1">P1</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p1-sc6" aria-label="S4"><label class="label" for="p1-sc6"><strong>S4 bad flag</strong> — <span class="tag p1">P1</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p1-sc7" aria-label="S6"><label class="label" for="p1-sc7"><strong>S6 injected log</strong> — <span class="tag p1">P1</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p1-rb" aria-label="Runbooks"><label class="label" for="p1-rb"><strong>Runbooks</strong> — <span class="tag p1">P1</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p1-trig" aria-label="Trigger"><label class="label" for="p1-trig"><strong>scripts/trigger_bad_deploy.py</strong> / ohero trigger — <span class="tag p0">P0</span></label></div>
+      <div class="gate"><span class="dot" aria-hidden="true"></span> Gate 1 — With only curl: break S1, see errors rise, read logs, roll back, executions = 1 even with duplicate key. Commit.</div>
+    </div>
+  </section>
+
+  <!-- Phase 2 -->
+  <section class="phase" aria-label="Phase 2">
+    <button class="header" onclick="togglePhase(this.closest('.phase'))" aria-expanded="false" aria-controls="p2-body">
+      <span class="num">2</span>
+      <h3 class="title">Supervisor / gateway skeleton <span style="font-family:var(--font-mono);font-size:0.75rem;color:var(--fg-muted);">0:50</span></h3>
+      <span class="meta">P0 done · registry + supervisor</span>
+      <span class="chev" aria-hidden="true">&#9654;</span>
+    </button>
+    <div id="p2-body" class="body">
+      <h4>Service registry</h4>
+      <div class="item"><input type="checkbox" checked id="p2-r1" aria-label="ServiceSpec"><label class="label" for="p2-r1"><strong>ServiceSpec</strong> model — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p2-r2" aria-label="Entries"><label class="label" for="p2-r2"><strong>Registry entries</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p2-r3" aria-label="Health"><label class="label" for="p2-r3"><strong>Health checks</strong> TCP/HTTP/process — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p2-r4" aria-label="Fixed argv"><label class="label" for="p2-r4"><strong>Fixed argv lists</strong> — <span class="tag p0">P0</span></label></div>
+      <h4>Supervisor</h4>
+      <div class="item"><input type="checkbox" checked id="p2-s1" aria-label="Start"><label class="label" for="p2-s1"><strong>start(name)</strong> spawn + tee + PID — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p2-s2" aria-label="Stop"><label class="label" for="p2-s2"><strong>stop(name)</strong> graceful then force — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p2-s3" aria-label="Kill"><label class="label" for="p2-s3"><strong>kill(name)</strong> via psutil — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p2-s4" aria-label="Status"><label class="label" for="p2-s4"><strong>status()</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p2-s5" aria-label="Ensure"><label class="label" for="p2-s5"><strong>ensure(names)</strong> dependency order — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p2-s6" aria-label="Tail"><label class="label" for="p2-s6"><strong>tail(name, n)</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p2-s7" aria-label="Re-adopt"><label class="label" for="p2-s7"><strong>Re-adopt from PID</strong> — <span class="tag p1">P1</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p2-s8" aria-label="Port"><label class="label" for="p2-s8"><strong>Port-in-use detection</strong> — <span class="tag p1">P1</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p2-s9" aria-label="Auto-restart"><label class="label" for="p2-s9"><strong>Optional auto_restart</strong> — <span class="tag p1">P1</span></label></div>
+      <h4>Gateway</h4>
+      <div class="item"><input type="checkbox" id="p2-g1" aria-label="FastAPI gateway"><label class="label" for="p2-g1"><strong>FastAPI app</strong> 127.0.0.1:8000 — <span class="tag p0">P0</span> <span class="note">not yet implemented</span></label></div>
+      <div class="item"><input type="checkbox" id="p2-g2" aria-label="Stack routes"><label class="label" for="p2-g2"><strong>/api/stack up/down</strong> — <span class="tag p0">P0</span> <span class="note">not yet implemented</span></label></div>
+      <div class="item"><input type="checkbox" id="p2-g3" aria-label="Services"><label class="label" for="p2-g3"><strong>/api/services start/stop/kill/restart</strong> — <span class="tag p0">P0</span> <span class="note">not yet implemented</span></label></div>
+      <div class="item"><input type="checkbox" id="p2-g4" aria-label="Logs route"><label class="label" for="p2-g4"><strong>/api/services/{name}/logs</strong> — <span class="tag p0">P0</span> <span class="note">not yet implemented</span></label></div>
+      <div class="item"><input type="checkbox" id="p2-g5" aria-label="SSE"><label class="label" for="p2-g5"><strong>/api/stack/events SSE</strong> — <span class="tag p1">P1</span> <span class="note">not yet implemented</span></label></div>
+      <div class="item"><input type="checkbox" id="p2-g6" aria-label="Static"><label class="label" for="p2-g6"><strong>Serves static/</strong> + browser open — <span class="tag p0">P0</span> <span class="note">not yet implemented</span></label></div>
+      <div class="item"><input type="checkbox" id="p2-g7" aria-label="CLI"><label class="label" for="p2-g7"><strong>CLI skeleton (typer)</strong> — <span class="tag p0">P0</span> <span class="note">not yet implemented</span></label></div>
+      <div class="gate"><span class="dot" aria-hidden="true"></span> Gate 2 — From cold machine: ohero up boots Temporal + worker + world; ohero kill worker kills; ohero start worker brings back. Commit.</div>
+    </div>
+  </section>
+
+  <!-- Phase 3 -->
+  <section class="phase" aria-label="Phase 3">
+    <button class="header" onclick="togglePhase(this.closest('.phase'))" aria-expanded="false" aria-controls="p3-body">
+      <span class="num">3</span>
+      <h3 class="title">Core workflow and agent <span style="font-family:var(--font-mono);font-size:0.75rem;color:var(--fg-muted);">1:45</span></h3>
+      <span class="meta">P0 done · workflow + activities</span>
+      <span class="chev" aria-hidden="true">&#9654;</span>
+    </button>
+    <div id="p3-body" class="body">
+      <h4>Models</h4>
+      <div class="item"><input type="checkbox" checked id="p3-m1" aria-label="Pydantic"><label class="label" for="p3-m1"><strong>Pydantic models</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p3-m2" aria-label="Phase enum"><label class="label" for="p3-m2"><strong>Phase enum + legal transitions</strong> — <span class="tag p0">P0</span></label></div>
+      <h4>Safety and validation</h4>
+      <div class="item"><input type="checkbox" checked id="p3-sv1" aria-label="Allowlist"><label class="label" for="p3-sv1"><strong>allowlist.py</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p3-sv2" aria-label="Validator"><label class="label" for="p3-sv2"><strong>validate_plan_against_allowlist</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p3-sv3" aria-label="Sanitize"><label class="label" for="p3-sv3"><strong>sanitize.py</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p3-sv4" aria-label="Tests"><label class="label" for="p3-sv4"><strong>Unit tests for validator</strong> — <span class="tag p0">P0</span></label></div>
+      <h4>LLM layer</h4>
+      <div class="item"><input type="checkbox" checked id="p3-ll1" aria-label="Provider"><label class="label" for="p3-ll1"><strong>LiteLLM wrapper complete()</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p3-ll2" aria-label="Config"><label class="label" for="p3-ll2"><strong>Ollama num_ctx / keep_alive / temp</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p3-ll3" aria-label="Repair"><label class="label" for="p3-ll3"><strong>JSON parse + Pydantic + one repair retry</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p3-ll4" aria-label="Non-retryable"><label class="label" for="p3-ll4"><strong>Non-retryable SchemaError</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p3-ll5" aria-label="Usage"><label class="label" for="p3-ll5"><strong>Usage tracking</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p3-ll6" aria-label="Scripted"><label class="label" for="p3-ll6"><strong>Scripted provider determinism</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p3-ll7" aria-label="Prompts"><label class="label" for="p3-ll7"><strong>Prompts</strong> — <span class="tag p0">P0</span></label></div>
+      <h4>Activities</h4>
+      <div class="item"><input type="checkbox" checked id="p3-act1" aria-label="LLM decide"><label class="label" for="p3-act1"><strong>llm_decide</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p3-act2" aria-label="Propose"><label class="label" for="p3-act2"><strong>propose_remediation</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p3-act3" aria-label="Run tool"><label class="label" for="p3-act3"><strong>run_tool</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p3-act4" aria-label="Search runbooks"><label class="label" for="p3-act4"><strong>search_runbooks</strong> — <span class="tag p1">P1</span></label></div>
+      <div class="item"><input type="checkbox" id="p3-act5" aria-label="Scan deep"><label class="label" for="p3-act5"><strong>scan_logs_deep</strong> — <span class="tag p1">P1</span> <span class="note">not implemented</span></label></div>
+      <h4>Workflow</h4>
+      <div class="item"><input type="checkbox" checked id="p3-wf1" aria-label="IncidentWorkflow"><label class="label" for="p3-wf1"><strong>IncidentWorkflow</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p3-wf2" aria-label="Agent loop"><label class="label" for="p3-wf2"><strong>Agent loop, I/O only via activities</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p3-wf3" aria-label="Prompt view"><label class="label" for="p3-wf3"><strong>prompt_view() compaction</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p3-wf4" aria-label="Budget"><label class="label" for="p3-wf4"><strong>Budget tracking</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p3-wf5" aria-label="Stop"><label class="label" for="p3-wf5"><strong>Stop on finish / budget exhaustion</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p3-wf6" aria-label="Proposal validated"><label class="label" for="p3-wf6"><strong>Proposal validated + re-ask</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p3-wf7" aria-label="Phase transitions"><label class="label" for="p3-wf7"><strong>Phase transitions append TimelineEvent</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p3-wf8" aria-label="Upsert search"><label class="label" for="p3-wf8"><strong>Upsert search attributes</strong> — <span class="tag p1">P1</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p3-wf9" aria-label="Model fallback"><label class="label" for="p3-wf9"><strong>Model fallback chain</strong> — <span class="tag p1">P1</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p3-wf10" aria-label="Queries"><label class="label" for="p3-wf10"><strong>Queries (status, timeline, budget)</strong> — <span class="tag p1">P1</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p3-wf11" aria-label="Signals"><label class="label" for="p3-wf11"><strong>Signals (pause, resume, add_note)</strong> — <span class="tag p1">P1</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p3-wf12" aria-label="Imports"><label class="label" for="p3-wf12"><strong>Imports in workflow.unsafe.imports_passed_through()</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p3-wf13" aria-label="No I/O"><label class="label" for="p3-wf13"><strong>No datetime.now / random / uuid4 / network / file in workflow</strong> — <span class="tag p0">P0</span></label></div>
+      <h4>Worker</h4>
+      <div class="item"><input type="checkbox" checked id="p3-wk1" aria-label="Worker"><label class="label" for="p3-wk1"><strong>Worker registers workflows + activities</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p3-wk2" aria-label="ID conflict"><label class="label" for="p3-wk2"><strong>Workflow ID dedup (id_conflict_policy)</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="gate"><span class="dot" aria-hidden="true"></span> Gate 3 — Trigger S1 with scripted: workflow investigates, reaches validated plan, parks at AWAITING_APPROVAL. Repeat with Ollama. Event history shows activities with attempts. Commit.</div>
+    </div>
+  </section>
+
+  <!-- Phase 4 -->
+  <section class="phase" aria-label="Phase 4">
+    <button class="header" onclick="togglePhase(this.closest('.phase'))" aria-expanded="false" aria-controls="p4-body">
+      <span class="num">4</span>
+      <h3 class="title">Approval, execute, verify, saga <span style="font-family:var(--font-mono);font-size:0.75rem;color:var(--fg-muted);">1:00</span></h3>
+      <span class="meta">P0 done · approval + execute + saga</span>
+      <span class="chev" aria-hidden="true">&#9654;</span>
+    </button>
+    <div id="p4-body" class="body">
+      <h4>Approval</h4>
+      <div class="item"><input type="checkbox" checked id="p4-a1" aria-label="Approve update"><label class="label" for="p4-a1"><strong>approve update with ApprovalDecision</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p4-a2" aria-label="Approve validator"><label class="label" for="p4-a2"><strong>@approve.validator</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p4-a3" aria-label="Reject"><label class="label" for="p4-a3"><strong>reject update with reason</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p4-a4" aria-label="Notify"><label class="label" for="p4-a4"><strong>notify_human activity</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p4-a5" aria-label="Escalation"><label class="label" for="p4-a5"><strong>Escalation chain + wait_condition</strong> — <span class="tag p1">P1</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p4-a6" aria-label="Demo timers"><label class="label" for="p4-a6"><strong>Demo-mode short timers (DEMO_MODE)</strong> — <span class="tag p1">P1</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p4-a7" aria-label="Silence"><label class="label" for="p4-a7"><strong>Silence means no action</strong> — <span class="tag p0">P0</span></label></div>
+      <h4>Execute</h4>
+      <div class="item"><input type="checkbox" checked id="p4-e1" aria-label="Idempotency key"><label class="label" for="p4-e1"><strong>execute_step with idempotency key</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p4-e2" aria-label="Compensation"><label class="label" for="p4-e2"><strong>Compensation registered after success</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p4-e3" aria-label="Rollback mutation"><label class="label" for="p4-e3"><strong>rollback_deploy + restart_service</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p4-e4" aria-label="Start/toggle"><label class="label" for="p4-e4"><strong>start_service + toggle_flag</strong> — <span class="tag p1">P1</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p4-e5" aria-label="Non-compensable"><label class="label" for="p4-e5"><strong>Non-compensable flagged</strong> — <span class="tag p0">P0</span></label></div>
+      <h4>Verify</h4>
+      <div class="item"><input type="checkbox" checked id="p4-v1" aria-label="Durable timer"><label class="label" for="p4-v1"><strong>workflow.sleep(verify_delay)</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p4-v2" aria-label="Check health"><label class="label" for="p4-v2"><strong>check_health compares metrics</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p4-v3" aria-label="Failed verify"><label class="label" for="p4-v3"><strong>Failed verification raises ApplicationError</strong> — <span class="tag p0">P0</span></label></div>
+      <h4>Saga</h4>
+      <div class="item"><input type="checkbox" checked id="p4-sa1" aria-label="Reverse order"><label class="label" for="p4-sa1"><strong>run_compensation in reverse</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p4-sa2" aria-label="Idempotent comp"><label class="label" for="p4-sa2"><strong>Compensations idempotent</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p4-sa3" aria-label="On failure+cancel"><label class="label" for="p4-sa3"><strong>Saga on failure and cancellation</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p4-sa4" aria-label="ESCALATED"><label class="label" for="p4-sa4"><strong>After rollback: ESCALATED + summary</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p4-sa5" aria-label="Cancel signal"><label class="label" for="p4-sa5"><strong>cancel_incident signal</strong> — <span class="tag p1">P1</span></label></div>
+      <h4>Post-mortem</h4>
+      <div class="item"><input type="checkbox" checked id="p4-pm1" aria-label="Write"><label class="label" for="p4-pm1"><strong>write_postmortem</strong> — <span class="tag p1">P1</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p4-pm2" aria-label="Contents"><label class="label" for="p4-pm2"><strong>Includes timeline, root cause, actions</strong> — <span class="tag p1">P1</span></label></div>
+      <div class="gate"><span class="dot" aria-hidden="true"></span> Gate 4 — S1: approve, rollback, verify → RESOLVED, executions = 1. S5: approve, verify fails → saga → ESCALATED. No approval: zero mutations. Commit.</div>
+    </div>
+  </section>
+
+  <!-- Phase 5 -->
+  <section class="phase" aria-label="Phase 5">
+    <button class="header" onclick="togglePhase(this.closest('.phase'))" aria-expanded="false" aria-controls="p5-body">
+      <span class="num">5</span>
+      <h3 class="title">UI <span style="font-family:var(--font-mono);font-size:0.75rem;color:var(--fg-muted);">1:15</span></h3>
+      <span class="meta">Partial · skeleton + routes open</span>
+      <span class="chev" aria-hidden="true">&#9654;</span>
+    </button>
+    <div id="p5-body" class="body">
+      <h4>Skeleton</h4>
+      <div class="item"><input type="checkbox" id="p5-sk1" aria-label="Static files"><label class="label" for="p5-sk1"><strong>static/index.html, style.css, app.js</strong>, vendored alpine.min.js — <span class="tag p0">P0</span> <span class="note">not yet implemented</span></label></div>
+      <div class="item"><input type="checkbox" id="p5-sk2" aria-label="Dark theme"><label class="label" for="p5-sk2"><strong>Dark theme</strong> with CSS variables — <span class="tag p0">P0</span> <span class="note">not yet implemented</span></label></div>
+      <h4>Header and stack</h4>
+      <div class="item"><input type="checkbox" id="p5-h1" aria-label="Pills"><label class="label" for="p5-h1"><strong>Service pills</strong> with status dot + uptime — <span class="tag p0">P0</span> <span class="note">not yet implemented</span></label></div>
+      <div class="item"><input type="checkbox" id="p5-h2" aria-label="Menu"><label class="label" for="p5-h2"><strong>Per-service menu</strong> — <span class="tag p0">P0</span> <span class="note">not yet implemented</span></label></div>
+      <div class="item"><input type="checkbox" id="p5-h3" aria-label="Stack buttons"><label class="label" for="p5-h3"><strong>Stack Up / Down</strong> — <span class="tag p0">P0</span> <span class="note">not yet implemented</span></label></div>
+      <div class="item"><input type="checkbox" id="p5-h4" aria-label="Model chip"><label class="label" for="p5-h4"><strong>Model chip</strong> — <span class="tag p0">P0</span> <span class="note">not yet implemented</span></label></div>
+      <h4>Scenarios and incidents</h4>
+      <div class="item"><input type="checkbox" id="p5-sc1" aria-label="Buttons"><label class="label" for="p5-sc1"><strong>Scenario buttons S1/S5</strong> — <span class="tag p0">P0</span> <span class="note">not yet implemented</span></label></div>
+      <div class="item"><input type="checkbox" id="p5-sc2" aria-label="Incident list"><label class="label" for="p5-sc2"><strong>Incident list</strong> — <span class="tag p0">P0</span> <span class="note">not yet implemented</span></label></div>
+      <div class="item"><input type="checkbox" id="p5-sc3" aria-label="Detail"><label class="label" for="p5-sc3"><strong>Incident detail + phase stepper</strong> — <span class="tag p0">P0</span> <span class="note">not yet implemented</span></label></div>
+      <div class="item"><input type="checkbox" id="p5-sc4" aria-label="Timeline"><label class="label" for="p5-sc4"><strong>Timeline from event history</strong> — <span class="tag p0">P0</span> <span class="note">not yet implemented</span></label></div>
+      <div class="item"><input type="checkbox" id="p5-sc5" aria-label="Retry badges"><label class="label" for="p5-sc5"><strong>Retry / attempt badges</strong> — <span class="tag p0">P0</span> <span class="note">not yet implemented</span></label></div>
+      <div class="item"><input type="checkbox" id="p5-sc6" aria-label="Primitive badges"><label class="label" for="p5-sc6"><strong>Primitive badges + tooltips</strong> — <span class="tag p0">P0</span> <span class="note">not yet implemented</span></label></div>
+      <div class="item"><input type="checkbox" id="p5-sc7" aria-label="Deep link"><label class="label" for="p5-sc7"><strong>Open in Temporal deep link</strong> — <span class="tag p0">P0</span> <span class="note">not yet implemented</span></label></div>
+      <h4>Plan and controls</h4>
+      <div class="item"><input type="checkbox" id="p5-pl1" aria-label="Plan panel"><label class="label" for="p5-pl1"><strong>Plan panel</strong> — <span class="tag p0">P0</span> <span class="note">not yet implemented</span></label></div>
+      <div class="item"><input type="checkbox" id="p5-pl2" aria-label="Editable"><label class="label" for="p5-pl2"><strong>Editable steps</strong> — <span class="tag p0">P0</span> <span class="note">not yet implemented</span></label></div>
+      <div class="item"><input type="checkbox" id="p5-pl3" aria-label="Approve/reject"><label class="label" for="p5-pl3"><strong>Approve / Reject buttons + validator errors</strong> — <span class="tag p0">P0</span> <span class="note">not yet implemented</span></label></div>
+      <div class="item"><input type="checkbox" id="p5-pl4" aria-label="Non-compensable"><label class="label" for="p5-pl4"><strong>Non-compensable warning + confirm</strong> — <span class="tag p0">P0</span> <span class="note">not yet implemented</span></label></div>
+      <div class="item"><input type="checkbox" id="p5-pl5" aria-label="Escalation countdown"><label class="label" for="p5-pl5"><strong>Escalation countdown</strong> — <span class="tag p1">P1</span> <span class="note">not yet implemented</span></label></div>
+      <div class="item"><input type="checkbox" id="p5-pl6" aria-label="Pause"><label class="label" for="p5-pl6"><strong>Pause / Resume, Add note, Cancel</strong> — <span class="tag p1">P1</span> <span class="note">not yet implemented</span></label></div>
+      <div class="item"><input type="checkbox" id="p5-pl7" aria-label="Budget"><label class="label" for="p5-pl7"><strong>Budget meter</strong> — <span class="tag p1">P1</span> <span class="note">not yet implemented</span></label></div>
+      <h4>Honesty banners</h4>
+      <div class="item"><input type="checkbox" id="p5-hb1" aria-label="Worker offline"><label class="label" for="p5-hb1"><strong>Worker offline banner</strong> — <span class="tag p0">P0</span> <span class="note">not yet implemented</span></label></div>
+      <div class="item"><input type="checkbox" id="p5-hb2" aria-label="Chaos active"><label class="label" for="p5-hb2"><strong>Chaos active</strong> — <span class="tag p0">P0</span> <span class="note">not yet implemented</span></label></div>
+      <div class="item"><input type="checkbox" id="p5-hb3" aria-label="Scripted"><label class="label" for="p5-hb3"><strong>Scripted model active</strong> — <span class="tag p0">P0</span> <span class="note">not yet implemented</span></label></div>
+      <div class="item"><input type="checkbox" id="p5-hb4" aria-label="Temporal down"><label class="label" for="p5-hb4"><strong>Temporal server down</strong> — <span class="tag p1">P1</span> <span class="note">not yet implemented</span></label></div>
+      <h4>World panel</h4>
+      <div class="item"><input type="checkbox" id="p5-wp1" aria-label="Sparkline"><label class="label" for="p5-wp1"><strong>Error-rate sparkline + version</strong> — <span class="tag p0">P0</span> <span class="note">not yet implemented</span></label></div>
+      <div class="item"><input type="checkbox" id="p5-wp2" aria-label="Executions"><label class="label" for="p5-wp2"><strong>Executions per key</strong> — <span class="tag p0">P0</span> <span class="note">not yet implemented</span></label></div>
+      <div class="item"><input type="checkbox" id="p5-wp3" aria-label="Flags"><label class="label" for="p5-wp3"><strong>Flags display</strong> — <span class="tag p1">P1</span> <span class="note">not yet implemented</span></label></div>
+      <h4>Live updates / gateway routes</h4>
+      <div class="item"><input type="checkbox" id="p5-lu1" aria-label="SSE"><label class="label" for="p5-lu1"><strong>SSE incident events</strong> — <span class="tag p0">P0</span> <span class="note">not yet implemented</span></label></div>
+      <div class="item"><input type="checkbox" id="p5-lu2" aria-label="SSE stack"><label class="label" for="p5-lu2"><strong>SSE stack status</strong> — <span class="tag p1">P1</span> <span class="note">not yet implemented</span></label></div>
+      <div class="item"><input type="checkbox" id="p5-lu3" aria-label="Postmortem"><label class="label" for="p5-lu3"><strong>Post-mortem tab + download</strong> — <span class="tag p1">P1</span> <span class="note">not yet implemented</span></label></div>
+      <div class="item"><input type="checkbox" id="p5-r1" aria-label="Trigger route"><label class="label" for="p5-r1"><strong>POST /api/scenarios/{id}/trigger</strong> — <span class="tag p0">P0</span> <span class="note">not yet implemented</span></label></div>
+      <div class="item"><input type="checkbox" id="p5-r2" aria-label="Incident routes"><label class="label" for="p5-r2"><strong>GET /api/incidents + approve/reject</strong> — <span class="tag p0">P0</span> <span class="note">not yet implemented</span></label></div>
+      <div class="item"><input type="checkbox" id="p5-r3" aria-label="Pause/resume"><label class="label" for="p5-r3"><strong>.../pause, .../resume, .../note, .../cancel, /postmortem</strong> — <span class="tag p1">P1</span> <span class="note">not yet implemented</span></label></div>
+      <div class="item"><input type="checkbox" id="p5-r4" aria-label="Webhook"><label class="label" for="p5-r4"><strong>POST /webhook/alert</strong> — <span class="tag p1">P1</span> <span class="note">not yet implemented</span></label></div>
+      <div class="item"><input type="checkbox" id="p5-r5" aria-label="History"><label class="label" for="p5-r5"><strong>history.py → TimelineEvent[]</strong> — <span class="tag p0">P0</span> <span class="note">not yet implemented</span></label></div>
+      <div class="item"><input type="checkbox" id="p5-r6" aria-label="Query fallback"><label class="label" for="p5-r6"><strong>Query fallback (describe + history)</strong> — <span class="tag p0">P0</span> <span class="note">not yet implemented</span></label></div>
+      <div class="gate"><span class="dot" aria-hidden="true"></span> Gate 5 — From cold start, single click runs S1 end-to-end in browser. Kill worker → banner within 3s; timeline keeps rendering. Edited plan approved. Commit.</div>
+    </div>
+  </section>
+
+  <!-- Phases 6-13: condensed expandable -->
+  <section class="phase" aria-label="Phase 6">
+    <button class="header" onclick="togglePhase(this.closest('.phase'))" aria-expanded="false" aria-controls="p6-body">
+      <span class="num">6</span><h3 class="title">Chaos, resilience, remaining scenarios <span style="font-family:var(--font-mono);font-size:0.75rem;color:var(--fg-muted);">0:45</span></h3><span class="meta">P0 done · chaos + S2-S4</span><span class="chev" aria-hidden="true">&#9654;</span>
+    </button>
+    <div id="p6-body" class="body">
+      <div class="item"><input type="checkbox" checked id="p6-c1" aria-label="Chaos file"><label class="label" for="p6-c1"><strong>.run/chaos.json</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p6-c2" aria-label="Error rate"><label class="label" for="p6-c2"><strong>tool_error_rate (429/500)</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" id="p6-c3" aria-label="Latency"><label class="label" for="p6-c3"><strong>tool_latency_ms / timeout_rate</strong> — <span class="tag p1">P1</span></label></div>
+      <div class="item"><input type="checkbox" id="p6-c4" aria-label="LLM outage"><label class="label" for="p6-c4"><strong>llm_outage (fallback)</strong> — <span class="tag p1">P1</span></label></div>
+      <div class="item"><input type="checkbox" id="p6-c5" aria-label="Garbage"><label class="label" for="p6-c5"><strong>llm_garbage_rate</strong> — <span class="tag p1">P1</span></label></div>
+      <div class="item"><input type="checkbox" id="p6-c6" aria-label="Duplicate"><label class="label" for="p6-c6"><strong>duplicate_mutation (counter = 1)</strong> — <span class="tag p1">P1</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p6-c7" aria-label="Chaos panel"><label class="label" for="p6-c7"><strong>Chaos panel + preset</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p6-c8" aria-label="Kill worker"><label class="label" for="p6-c8"><strong>Kill-worker button / make kill-worker</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" id="p6-c9" aria-label="Kill temporal"><label class="label" for="p6-c9"><strong>Kill-Temporal-server + survive</strong> — <span class="tag p1">P1</span></label></div>
+      <div class="item"><input type="checkbox" id="p6-s1" aria-label="S2"><label class="label" for="p6-s1"><strong>S2 memory leak end to end</strong> — <span class="tag p1">P1</span></label></div>
+      <div class="item"><input type="checkbox" id="p6-s2" aria-label="S3"><label class="label" for="p6-s2"><strong>S3 dependency down end to end</strong> — <span class="tag p1">P1</span></label></div>
+      <div class="item"><input type="checkbox" id="p6-s3" aria-label="S4"><label class="label" for="p6-s3"><strong>S4 bad flag end to end</strong> — <span class="tag p1">P1</span></label></div>
+      <div class="item"><input type="checkbox" id="p6-s4" aria-label="S6"><label class="label" for="p6-s4"><strong>S6 injection ignored</strong> — <span class="tag p1">P1</span></label></div>
+      <div class="gate"><span class="dot" aria-hidden="true"></span> Gate 6 — Chaos on + worker kill mid-run; S1 still resolves with exactly one rollback. Commit.</div>
+    </div>
+  </section>
+
+  <section class="phase" aria-label="Phase 7">
+    <button class="header" onclick="togglePhase(this.closest('.phase'))" aria-expanded="false" aria-controls="p7-body">
+      <span class="num">7</span><h3 class="title">Tests <span style="font-family:var(--font-mono);font-size:0.75rem;color:var(--fg-muted);">parallel</span></h3><span class="meta">P0 verified · pytest ready</span><span class="chev" aria-hidden="true">&#9654;</span>
+    </button>
+    <div id="p7-body" class="body">
+      <h4>Unit</h4>
+      <div class="item"><input type="checkbox" checked id="p7-u1" aria-label="Validator"><label class="label" for="p7-u1"><strong>Allowlist + plan validator</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p7-u2" aria-label="Sanitizer"><label class="label" for="p7-u2"><strong>Sanitizer</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p7-u3" aria-label="Budget"><label class="label" for="p7-u3"><strong>Budget math</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p7-u4" aria-label="Prompt view"><label class="label" for="p7-u4"><strong>prompt_view() compaction</strong> — <span class="tag p0">P0</span></label></div>
+      <h4>Workflow tests</h4>
+      <div class="item"><input type="checkbox" checked id="p7-w1" aria-label="Happy"><label class="label" for="p7-w1"><strong>test_happy_path_resolves</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p7-w2" aria-label="No approval"><label class="label" for="p7-w2"><strong>test_no_approval_no_action</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p7-w3" aria-label="Verify fails"><label class="label" for="p7-w3"><strong>test_verify_fails_triggers_saga</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p7-w4" aria-label="Approve validator"><label class="label" for="p7-w4"><strong>test_approve_validator_rejects_wrong_phase</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p7-w5" aria-label="Edited plan"><label class="label" for="p7-w5"><strong>test_edited_plan_revalidated</strong> — <span class="tag p0">P0</span></label></div>
+      <h4>Replay / Integration / CI</h4>
+      <div class="item"><input type="checkbox" checked id="p7-r1" aria-label="Record"><label class="label" for="p7-r1"><strong>scripts/record_history.py</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" checked id="p7-r2" aria-label="Replayer"><label class="label" for="p7-r2"><strong>test_replay_saved_histories</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" id="p7-i1" aria-label="Kill worker"><label class="label" for="p7-i1"><strong>test_kill_worker_mid_run_still_resolves</strong> — <span class="tag p0">P0</span> <span class="note">needs running stack</span></label></div>
+    </div>
+  </section>
+
+  <section class="phase" aria-label="Phase 8">
+    <button class="header" onclick="togglePhase(this.closest('.phase'))" aria-expanded="false" aria-controls="p8-body">
+      <span class="num">8</span><h3 class="title">Local-model testing / eval <span style="font-family:var(--font-mono);font-size:0.75rem;color:var(--fg-muted);">parallel</span></h3><span class="meta">Needs user env (Ollama / Anthropic)</span><span class="chev" aria-hidden="true">&#9654;</span>
+    </button>
+    <div id="p8-body" class="body">
+      <div class="item"><input type="checkbox" aria-label="Make models"><label class="label" for="p8"><strong>make models</strong> checks — <span class="tag p0">P0</span> <span class="note">needs user env</span></label></div>
+      <div class="item"><input type="checkbox" aria-label="Local S1"><label class="label" for="p8"><strong>make dev-local: S1 with local model</strong> — <span class="tag p0">P0</span> <span class="note">needs running model</span></label></div>
+      <div class="item"><input type="checkbox" aria-label="Eval harness"><label class="label" for="p8"><strong>eval/runner.py + scoring</strong> — <span class="tag p1">P1</span> <span class="note">needs user env</span></label></div>
+      <div class="gate"><span class="dot" aria-hidden="true"></span> Gate 8 — You can state truthfully which local model works for which scenarios, with a table to prove it.</div>
+    </div>
+  </section>
+
+  <section class="phase" aria-label="Phase 9">
+    <button class="header" onclick="togglePhase(this.closest('.phase'))" aria-expanded="false" aria-controls="p9-body">
+      <span class="num">9</span><h3 class="title">Documentation <span style="font-family:var(--font-mono);font-size:0.75rem;color:var(--fg-muted);">0:20</span></h3><span class="meta">Done · README + docs + checklist</span><span class="chev" aria-hidden="true">&#9654;</span>
+    </button>
+    <div id="p9-body" class="body">
+      <p>Documentation verified: README, CONTRIBUTING, architecture.md, demo-script.md, DOCS.md updated to match built items, checklist verified directly against implementation.</p>
+    </div>
+  </section>
+
+  <section class="phase" aria-label="Phase 10">
+    <button class="header" onclick="togglePhase(this.closest('.phase'))" aria-expanded="false" aria-controls="p10-body">
+      <span class="num">10</span><h3 class="title">Demo preparation <span style="font-family:var(--font-mono);font-size:0.75rem;color:var(--fg-muted);">0:15</span></h3><span class="meta">Needs running stack</span><span class="chev" aria-hidden="true">&#9654;</span>
+    </button>
+    <div id="p10-body" class="body">
+      <p>Requires running Temporal + worker + world stack. Pre-warm model, reset script ready, backup video needed.</p>
+      <div class="gate"><span class="dot" aria-hidden="true"></span> Record demo (2-3 min); export GIF; confirm links in private window.</div>
+    </div>
+  </section>
+
+  <section class="phase" aria-label="Phase 11">
+    <button class="header" onclick="togglePhase(this.closest('.phase'))" aria-expanded="false" aria-controls="p11-body">
+      <span class="num">11</span><h3 class="title">Open-source release <span style="font-family:var(--font-mono);font-size:0.75rem;color:var(--fg-muted);">0:15</span></h3><span class="meta">Needs gh repo create + tag</span><span class="chev" aria-hidden="true">&#9654;</span>
+    </button>
+    <div id="p11-body" class="body">
+      <p>Publish to public repo, add topics (temporal, ai-agents, sre, durable-execution, llm, ollama, python), tag v0.1.0 with demo link.</p>
+    </div>
+  </section>
+
+  <section class="phase" aria-label="Phase 12">
+    <button class="header" onclick="togglePhase(this.closest('.phase'))" aria-expanded="false" aria-controls="p12-body">
+      <span class="num">12</span><h3 class="title">Hackathon submission <span style="font-family:var(--font-mono);font-size:0.75rem;color:var(--fg-muted);">0:10</span></h3><span class="meta">Needs video + repo</span><span class="chev" aria-hidden="true">&#9654;</span>
+    </button>
+    <div id="p12-body" class="body">
+      <p>Submit for Best Use of Temporal: repo link, demo video, 3-sentence description (agent loop = workflow, kill-worker resume, approval + durable timers, saga rollback, exactly-once proof), architecture diagram included.</p>
+      <div class="item"><input type="checkbox" id="p12-t1" aria-label="Workflow"><label class="label" for="p12-t1"><strong>Workflow with deterministic agent loop</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" id="p12-t2" aria-label="Activities"><label class="label" for="p12-t2"><strong>Activities for every LLM/tool call</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" id="p12-t3" aria-label="Retry"><label class="label" for="p12-t3"><strong>Retry policies with backoff</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" id="p12-t4" aria-label="Non-retryable"><label class="label" for="p12-t4"><strong>Non-retryable errors</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" id="p12-t5" aria-label="Timeouts"><label class="label" for="p12-t5"><strong>Activity timeouts</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" id="p12-t6" aria-label="Heartbeat"><label class="label" for="p12-t6"><strong>Heartbeats with resume</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" id="p12-t7" aria-label="Signals"><label class="label" for="p12-t7"><strong>Signals (pause, resume, note, cancel)</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" id="p12-t8" aria-label="Updates"><label class="label" for="p12-t8"><strong>Updates with validators</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" id="p12-t9" aria-label="Queries"><label class="label" for="p12-t9"><strong>Queries (status, timeline, budget)</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" id="p12-t10" aria-label="Durable timers"><label class="label" for="p12-t10"><strong>Durable timers</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" id="p12-t11" aria-label="Saga"><label class="label" for="p12-t11"><strong>Saga compensation</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" id="p12-t12" aria-label="Child workflows"><label class="label" for="p12-t12"><strong>Child workflows</strong> — <span class="tag p2">P2</span></label></div>
+      <div class="item"><input type="checkbox" id="p12-t13" aria-label="Schedules"><label class="label" for="p12-t13"><strong>Schedules</strong> — <span class="tag p2">P2</span></label></div>
+      <div class="item"><input type="checkbox" id="p12-t14" aria-label="Continue-as-new"><label class="label" for="p12-t14"><strong>Continue-as-new</strong> — <span class="tag p2">P2</span></label></div>
+      <div class="item"><input type="checkbox" id="p12-t15" aria-label="Search"><label class="label" for="p12-t15"><strong>Search attributes</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" id="p12-t16" aria-label="Workflow ID"><label class="label" for="p12-t16"><strong>Workflow ID dedup</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" id="p12-t17" aria-label="Pydantic"><label class="label" for="p12-t17"><strong>Pydantic data converter</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" id="p12-t18" aria-label="Replay"><label class="label" for="p12-t18"><strong>Replay tests</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" id="p12-t19" aria-label="Time-skipping"><label class="label" for="p12-t19"><strong>Time-skipping tests</strong> — <span class="tag p0">P0</span></label></div>
+      <div class="item"><input type="checkbox" id="p12-t20" aria-label="Persistent"><label class="label" for="p12-t20"><strong>Persistent dev server (SQLite)</strong> — <span class="tag p0">P0</span></label></div>
+    </div>
+  </section>
+
+  <section class="phase" aria-label="Phase 13">
+    <button class="header" onclick="togglePhase(this.closest('.phase'))" aria-expanded="false" aria-controls="p13-body">
+      <span class="num">13</span><h3 class="title">Cut rules and contingencies <span style="font-family:var(--font-mono);font-size:0.75rem;color:var(--fg-muted);">n/a</span></h3><span class="meta">Documented</span><span class="chev" aria-hidden="true">&#9654;</span>
+    </button>
+    <div id="p13-body" class="body">
+      <h4>If behind, cut in this order</h4>
+      <ol>
+        <li>Parallel investigator child workflows</li><li>Second task queue</li><li>Slack integration</li><li>Soak test</li><li>S3, S4 scenarios</li><li>Continue-as-new demo (keep unit test)</li><li>Post-mortem polish</li><li>SSE for stack status (poll)</li><li>Eval harness (manual 2-row table)</li>
+      </ol>
+      <h4>Never cut</h4>
+      <ul>
+        <li>Kill-worker then resume demo</li><li>Approval update with validator</li><li>Saga rollback on failed verification</li><li>Exactly-once counter</li><li>Silence means no action</li><li>Worker-offline banner + history timeline</li><li>README quickstart that works</li>
+      </ul>
+      <h4>Checkpoints</h4>
+      <ul>
+        <li><strong>Hour 2:30</strong>: Gates 0-2 passed, or cut P1 from phase 2 onward.</li>
+        <li><strong>Hour 4:15</strong>: Gate 3 passed, or switch to scripted provider; fix model later.</li>
+        <li><strong>Hour 5:15</strong>: Gate 4 passed, or drop S2-S4 + all P2.</li>
+        <li><strong>Hour 6:30</strong>: Gate 5 passed, or simplify UI to timeline + approve.</li>
+        <li><strong>Hour 7:15</strong>: Start documentation regardless.</li>
+      </ul>
+      <h4>Common failure playbook</h4>
+      <ul>
+        <li>Non-determinism → search workflow for I/O, datetime, random; move to activity; replay.</li>
+        <li>Local model too slow → raise timeout, warm, shrink prompt, or switch smaller; scripted fallback.</li>
+        <li>Bad JSON → lower temp, bigger model, strengthen repair retry.</li>
+        <li>Queries fail → worker down; fall back to history (by design).</li>
+        <li>Port conflict → UI names process; kill or change config.</li>
+        <li>Demo breaks → backup video; narrate honestly.</li>
+      </ul>
+      <div class="gate"><span class="dot" aria-hidden="true"></span> Definition of done — P0 items checked, Gates 0-6 passed, clean-clone quickstart <5 min, demo <2:30, kill-worker resume demonstrated, repo public + tagged + submitted.</div>
+    </div>
+  </section>
+
+  <!-- Definition of done -->
+  <section aria-label="Definition of done" style="margin-top:12px;">
+    <div class="info-block">
+      <h2>Definition of done (v0.1.0)</h2>
+      <ul>
+        <li><strong>All P0 items checked</strong></li>
+        <li><strong>Gates 0 to 6 passed</strong></li>
+        <li><strong>Clean-clone quickstart works in under 5 minutes</strong></li>
+        <li><strong>Demo runs under 2:30 without intervention</strong></li>
+        <li><strong>Kill-worker resume demonstrated and recorded</strong></li>
+        <li><strong>Repo public, tagged, and submitted</strong></li>
+      </ul>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-foot" role="contentinfo">
+  Built from checklist.md · On-Call Hero · Temporal AI incident response · Interactive checklist · 2026-10-04
+</footer>
+
+<script>
+function togglePhase(el) {
+  const open = el.classList.toggle('open');
+  const btn = el.querySelector('.header');
+  btn.setAttribute('aria-expanded', String(open));
+}
+</script>
+
+</body>
+</html>
