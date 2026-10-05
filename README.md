@@ -118,5 +118,3 @@ Install dependencies: `pip install -r requirements.txt`
 `git clone ...; pip install -r requirements.txt; make up; click "S1 Bad deploy"`
 
 ---
-
-*Generated with Claude Code. End of guide.*
